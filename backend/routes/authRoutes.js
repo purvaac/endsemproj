@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Register new user
@@ -25,24 +24,17 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({ error: 'User already exists.' });
         }
 
-        // Generate salt and hash password
-        const salt = await bcrypt.genSalt(10); // Generate salt
-        const hashedPassword = await bcrypt.hash(password, salt); // Hash password with the generated salt
-
-        console.log("Generated salt:", salt);
-        console.log("Hashed password:", hashedPassword);
-
-        // Create new user
+        // Create new user (no need to hash the password here)
         const user = new User({
             username: username.trim(),
             name: name.trim(),
             email: email.trim(),
-            password: hashedPassword, // Store hashed password
+            password: password, // Plain password (Mongoose will hash it automatically)
             role: role.trim(),
         });
 
-        await user.save();
-        console.log("User registered:", { email, password: hashedPassword });
+        await user.save(); // Mongoose will hash the password via pre-save hook
+        console.log("User registered:", { email });
 
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
@@ -65,7 +57,7 @@ router.post('/login', async (req, res) => {
         }
 
         // Compare input password with stored hashed password
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await user.comparePassword(password);
         console.log("Password comparison result:", isMatch);
         if (!isMatch) {
             console.error("Password mismatch for email:", email);
